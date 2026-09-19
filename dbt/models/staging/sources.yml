@@ -1,0 +1,26 @@
+version: 2
+
+sources:
+  - name: raw
+    schema: raw
+    tables:
+      - name: entsoe_raw
+        description: "Raw flattened ENTSO-E points (load, generation, day-ahead price) as loaded from MinIO."
+        loaded_at_field: loaded_at
+        freshness:
+          warn_after: {count: 2, period: hour}
+          error_after: {count: 6, period: hour}
+        columns:
+          - name: zone
+            tests: [not_null]
+          - name: period_start
+            tests: [not_null]
+      - name: openmeteo_raw
+        description: "Raw hourly weather variables as loaded from MinIO."
+        loaded_at_field: loaded_at
+        freshness:
+          warn_after: {count: 2, period: hour}
+          error_after: {count: 6, period: hour}
+        columns:
+          - name: zone
+            tests: [not_null]

@@ -1,0 +1,15 @@
+version: 2
+
+models:
+  - name: fct_demand_weather
+    description: "Hourly fact table joining load, wind/solar generation, day-ahead price, and weather per zone."
+    columns:
+      - name: row_key
+        description: "Surrogate key: zone + timestamp. Must be unique -- a duplicate here means one of the joins (generation/price/weather) is fanning out, most likely generation_pivot not being grouped down to one row per (zone, ts)."
+        tests: [unique, not_null]
+      - name: zone
+        tests: [not_null]
+      - name: ts
+        tests: [not_null]
+      - name: load_mw
+        tests: [not_null]

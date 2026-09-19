@@ -1,0 +1,48 @@
+version: 2
+
+models:
+  - name: stg_entsoe_load
+    description: "Hourly system load per zone, deduplicated to the latest-loaded value per (zone, ts)."
+    columns:
+      - name: row_key
+        description: "Surrogate key: zone + timestamp. Must be unique -- catches the dedup logic regressing."
+        tests: [unique, not_null]
+      - name: zone
+        tests: [not_null]
+      - name: ts
+        tests: [not_null]
+      - name: load_mw
+        tests: [not_null]
+
+  - name: stg_entsoe_generation
+    description: "Hourly generation by PSR type per zone, deduplicated to the latest-loaded value per (zone, ts, psr_type)."
+    columns:
+      - name: row_key
+        description: "Surrogate key: zone + timestamp + psr_type. Must be unique."
+        tests: [unique, not_null]
+      - name: zone
+        tests: [not_null]
+      - name: ts
+        tests: [not_null]
+
+  - name: stg_entsoe_price
+    description: "Hourly day-ahead price per zone, deduplicated to the latest-loaded value per (zone, ts)."
+    columns:
+      - name: row_key
+        description: "Surrogate key: zone + timestamp. Must be unique."
+        tests: [unique, not_null]
+      - name: zone
+        tests: [not_null]
+      - name: ts
+        tests: [not_null]
+
+  - name: stg_openmeteo_weather
+    description: "Hourly weather observations per zone, deduplicated to the latest-loaded value per (zone, ts)."
+    columns:
+      - name: row_key
+        description: "Surrogate key: zone + timestamp. Must be unique."
+        tests: [unique, not_null]
+      - name: zone
+        tests: [not_null]
+      - name: ts
+        tests: [not_null]

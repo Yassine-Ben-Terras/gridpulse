@@ -1,0 +1,9 @@
+requests==2.32.3
+python-dotenv==1.0.1
+minio==7.2.9
+pandas==2.2.2
+scikit-learn==1.5.1
+xgboost==2.1.1
+statsmodels==0.14.2
+dbt-core==1.8.3
+dbt-postgres==1.8.2
