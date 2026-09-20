@@ -155,3 +155,32 @@ services:
       retries: 20
       start_period: 60s
 
+  # ---------------- D. Serving & BI ----------------
+
+  metabase:
+    image: metabase/metabase:latest
+    ports:
+      - "3000:3000"
+    volumes:
+      - metabase_data:/metabase-data
+    environment:
+      MB_DB_FILE: ${MB_DB_FILE}
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  api:
+    build:
+      context: ./api
+      dockerfile: Dockerfile
+    ports:
+      - "8000:8000"
+    environment:
+      WAREHOUSE_HOST: postgres
+      WAREHOUSE_PORT: 5432
+      WAREHOUSE_DB: ${POSTGRES_DB}
+      WAREHOUSE_USER: ${POSTGRES_USER}
+      WAREHOUSE_PASSWORD: ${POSTGRES_PASSWORD}
+    depends_on:
+      postgres:
+        condition: service_healthy
