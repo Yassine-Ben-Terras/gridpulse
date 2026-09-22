@@ -13,3 +13,19 @@ models:
         tests: [not_null]
       - name: load_mw
         tests: [not_null]
+
+  - name: forecasts_vs_actuals
+    description: "Resolved predictions (i.e. the target hour has actually happened) joined against real values, with error metrics. Rows only exist once an actual has arrived -- a still-future prediction simply isn't here yet, not a null row."
+    columns:
+      - name: zone
+        tests: [not_null]
+      - name: ts
+        tests: [not_null]
+      - name: target
+        tests:
+          - accepted_values:
+              values: ['demand', 'wind_generation', 'solar_generation']
+      - name: predicted_value
+        tests: [not_null]
+      - name: actual_value
+        tests: [not_null]

@@ -1,0 +1,15 @@
+version: 2
+
+sources:
+  - name: app
+    schema: public
+    tables:
+      - name: forecasts
+        description: "Predictions written directly by forecasting/train_predict.py (not part of the bronze/raw ingestion path)."
+        columns:
+          - name: zone
+            tests: [not_null]
+          - name: ts
+            tests: [not_null]
+          - name: target
+            tests: [not_null]

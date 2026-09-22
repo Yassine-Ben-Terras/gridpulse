@@ -10,10 +10,13 @@ from airflow.operators.python import PythonOperator
 from airflow.operators.bash import BashOperator
 from airflow.sensors.python import PythonSensor
 
+from alerting import log_failure_to_warehouse
+
 default_args = {
     "owner": "energy-weather-platform",
     "retries": 2,
     "retry_delay": timedelta(minutes=5),
+    "on_failure_callback": log_failure_to_warehouse,
 }
 
 

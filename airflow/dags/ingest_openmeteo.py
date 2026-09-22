@@ -7,6 +7,7 @@ from airflow import DAG
 from airflow.operators.python import PythonOperator
 
 from openmeteo_fetcher import run as run_openmeteo
+from alerting import log_failure_to_warehouse
 
 # Coordinates should match the bidding zones tracked in ingest_entsoe.py so
 # weather and energy data join cleanly downstream in dbt.
@@ -20,6 +21,7 @@ default_args = {
     "owner": "energy-weather-platform",
     "retries": 3,
     "retry_delay": timedelta(minutes=5),
+    "on_failure_callback": log_failure_to_warehouse,
 }
 
 with DAG(

@@ -1,0 +1,99 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  python-checks:
+    name: Python syntax check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Compile-check every Python file
+        # py_compile only parses syntax -- it doesn't need the actual
+        # dependencies (airflow, sqlalchemy, etc.) installed, so this catches
+        # the class of bug that broke run_dbt_and_forecast.py earlier in
+        # development without needing a heavy install step.
+        run: |
+          find airflow ingestion forecasting api -name "*.py" -print0 \
+            | xargs -0 -n1 python -m py_compile
+          echo "All Python files compile cleanly."
+
+  dbt-parse:
+    name: dbt parse (Jinja/YAML/ref validation)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install dbt
+        run: pip install dbt-core==1.8.2 dbt-postgres==1.8.2
+      - name: dbt parse
+        working-directory: dbt
+        env:
+          # dbt parse never opens a connection, but profiles.yml's env_var()
+          # calls still need something to resolve to.
+          WAREHOUSE_HOST: localhost
+          WAREHOUSE_PORT: "5432"
+          WAREHOUSE_USER: dummy
+          WAREHOUSE_PASSWORD: dummy
+          WAREHOUSE_DB: dummy
+        run: dbt parse --profiles-dir .
+
+  dbt-integration-test:
+    name: dbt run/test against a real seeded Postgres
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: warehouse
+          POSTGRES_PASSWORD: ci_password
+          POSTGRES_DB: energy_weather
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U warehouse"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      WAREHOUSE_HOST: localhost
+      WAREHOUSE_PORT: "5432"
+      WAREHOUSE_USER: warehouse
+      WAREHOUSE_PASSWORD: ci_password
+      WAREHOUSE_DB: energy_weather
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install dependencies
+        run: |
+          pip install dbt-core==1.8.2 dbt-postgres==1.8.2 sqlalchemy==2.0.35 psycopg2-binary==2.9.9 pandas==2.2.2 minio==7.2.9
+
+      - name: Create raw schema/tables (same code path load_to_warehouse.py uses)
+        working-directory: ingestion
+        run: |
+          python -c "from load_to_warehouse import _ensure_tables, _warehouse_engine; _ensure_tables(_warehouse_engine())"
+
+      - name: Load fixture data
+        run: |
+          PGPASSWORD=ci_password psql -h localhost -U warehouse -d energy_weather -f .github/ci/seed_fixture.sql
+
+      - name: dbt run
+        working-directory: dbt
+        run: dbt run --profiles-dir .
+
+      - name: dbt test
+        working-directory: dbt
+        run: dbt test --profiles-dir .
+
+      - name: Verify computed values match expected fixture results
+        run: python .github/ci/verify_fixture.py

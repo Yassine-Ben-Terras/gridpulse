@@ -61,9 +61,19 @@ class ZoneMetrics(BaseModel):
     latest_forecast_at: Optional[datetime]
 
 
+class AlertOut(BaseModel):
+    dag_id: Optional[str]
+    task_id: Optional[str]
+    run_id: Optional[str]
+    logical_date: Optional[datetime]
+    error_message: Optional[str]
+    failed_at: datetime
+
+
 class MetricsOut(BaseModel):
     generated_at: datetime
     zones: list[ZoneMetrics]
+    recent_alerts: list[AlertOut]
 
 
 @app.get("/health")
@@ -120,10 +130,11 @@ def get_forecasts(
 @app.get("/metrics", response_model=MetricsOut)
 def get_metrics():
     """
-    Per-zone row counts and freshness from the mart, plus each zone's most
-    recent forecast timestamp -- a quick way for another service (or a status
-    page) to check the pipeline is actually current without querying Postgres
-    directly.
+    Per-zone row counts and freshness from the mart, each zone's most recent
+    forecast timestamp, and the most recent pipeline failures (if any) --
+    logged by the Airflow on_failure_callback in ingestion/alerting.py. A
+    quick way for another service (or a status page) to check the pipeline
+    is actually current and healthy without querying Postgres directly.
     """
     mart_query = text("""
         select zone, count(*) as row_count, min(ts) as earliest_ts, max(ts) as latest_ts
@@ -136,10 +147,22 @@ def get_metrics():
         from forecasts
         group by zone
     """)
+    alerts_query = text("""
+        select dag_id, task_id, run_id, logical_date, error_message, failed_at
+        from pipeline_alerts
+        order by failed_at desc
+        limit 10
+    """)
 
     with get_engine().connect() as conn:
         mart_rows = {row["zone"]: dict(row) for row in conn.execute(mart_query).mappings().all()}
         forecast_rows = {row["zone"]: row["latest_forecast_at"] for row in conn.execute(forecast_query).mappings().all()}
+        try:
+            alert_rows = [dict(row) for row in conn.execute(alerts_query).mappings().all()]
+        except Exception:
+            # pipeline_alerts is created lazily on the first real failure --
+            # no failures yet simply means the table doesn't exist.
+            alert_rows = []
 
     zones = [
         ZoneMetrics(
@@ -152,4 +175,8 @@ def get_metrics():
         for zone, data in mart_rows.items()
     ]
 
-    return MetricsOut(generated_at=datetime.now(timezone.utc), zones=zones)
+    return MetricsOut(
+        generated_at=datetime.now(timezone.utc),
+        zones=zones,
+        recent_alerts=[AlertOut(**row) for row in alert_rows],
+    )

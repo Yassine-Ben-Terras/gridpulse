@@ -7,6 +7,7 @@ from airflow import DAG
 from airflow.operators.python import PythonOperator
 
 from entsoe_fetcher import run as run_entsoe
+from alerting import log_failure_to_warehouse
 
 # One task per bidding zone you want to track. Add more tuples as you expand coverage.
 ZONES = [
@@ -19,6 +20,7 @@ default_args = {
     "owner": "energy-weather-platform",
     "retries": 3,
     "retry_delay": timedelta(minutes=5),
+    "on_failure_callback": log_failure_to_warehouse,
 }
 
 with DAG(
